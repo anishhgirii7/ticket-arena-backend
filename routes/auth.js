@@ -165,22 +165,20 @@ router.delete('/admin/events/:id', async (req, res) => {
   }
 });
 
-// POST /api/admin/events - add new event
-router.post('/admin/events', async (req, res) => {
-  if (!req.session.isAdmin) {
-    return res.status(401).json({ error: 'Admin access required.' });
-  }
-  try {
-    const db = require('../config/db');
-    const { event_title, category_id, venue_id, event_date, event_time, price, total_seats } = req.body;
-    await db.execute(
-      'INSERT INTO events (event_title, category_id, venue_id, event_date, event_time, price, total_seats, available_seats, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [event_title, category_id, venue_id, event_date, event_time, price, total_seats, total_seats, 'Available']
-    );
-    res.status(201).json({ message: 'Event added successfully!' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Could not add event.' });
+// POST /api/auth/admin-login
+router.post('/admin-login', (req, res) => {
+  const { username, password } = req.body;
+  
+  if (username === 'admin' && password === 'admin123') {
+    req.session.isAdmin = true;
+    req.session.save((err) => {
+      if (err) {
+        return res.status(500).json({ error: 'Session error.' });
+      }
+      res.json({ message: 'Admin login successful!', admin: true });
+    });
+  } else {
+    res.status(401).json({ error: 'Invalid admin credentials.' });
   }
 });
 module.exports = router;
