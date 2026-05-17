@@ -5,6 +5,12 @@ const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
 const db = require('../config/db');
 
+// Admin check helper - accepts session OR token
+const checkAdmin = (req) => {
+  const adminToken = req.headers['admin-token'];
+  return req.session.isAdmin || adminToken === 'admin123';
+};
+
 // POST /api/auth/register
 router.post('/register', [
   body('full_name').trim().notEmpty().withMessage('Full name is required'),
@@ -92,9 +98,7 @@ router.post('/login', [
 // POST /api/auth/logout
 router.post('/logout', (req, res) => {
   req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({ error: 'Could not log out.' });
-    }
+    if (err) return res.status(500).json({ error: 'Could not log out.' });
     res.clearCookie('connect.sid');
     res.json({ message: 'Logged out successfully.' });
   });
@@ -111,11 +115,10 @@ router.get('/me', (req, res) => {
     res.json({ loggedIn: false });
   }
 });
+
 // POST /api/auth/admin-login
 router.post('/admin-login', (req, res) => {
   const { username, password } = req.body;
-  
-  // Hardcoded admin credentials
   if (username === 'admin' && password === 'admin123') {
     req.session.isAdmin = true;
     res.json({ message: 'Admin login successful!', admin: true });
@@ -124,15 +127,14 @@ router.post('/admin-login', (req, res) => {
   }
 });
 
-// GET /api/admin/events - get all events for admin
+// GET /api/auth/admin/events
 router.get('/admin/events', async (req, res) => {
-  if (!req.session.isAdmin) {
+  if (!checkAdmin(req)) {
     return res.status(401).json({ error: 'Admin access required.' });
   }
   try {
-    const db = require('../config/db');
     const [events] = await db.execute(`
-      SELECT e.event_id, e.event_title, e.event_date, e.event_time,
+      SELECT e.event_id AS id, e.event_title AS title, e.event_date, e.event_time,
              e.price, e.total_seats, e.available_seats, e.status,
              sc.category_name AS sport,
              v.venue_name AS venue
@@ -148,13 +150,12 @@ router.get('/admin/events', async (req, res) => {
   }
 });
 
-// DELETE /api/admin/events/:id
+// DELETE /api/auth/admin/events/:id
 router.delete('/admin/events/:id', async (req, res) => {
-  if (!req.session.isAdmin) {
+  if (!checkAdmin(req)) {
     return res.status(401).json({ error: 'Admin access required.' });
   }
   try {
-    const db = require('../config/db');
     await db.execute('DELETE FROM tickets WHERE booking_id IN (SELECT booking_id FROM bookings WHERE event_id = ?)', [req.params.id]);
     await db.execute('DELETE FROM bookings WHERE event_id = ?', [req.params.id]);
     await db.execute('DELETE FROM events WHERE event_id = ?', [req.params.id]);
@@ -165,20 +166,22 @@ router.delete('/admin/events/:id', async (req, res) => {
   }
 });
 
-// POST /api/auth/admin-login
-router.post('/admin-login', (req, res) => {
-  const { username, password } = req.body;
-  
-  if (username === 'admin' && password === 'admin123') {
-    req.session.isAdmin = true;
-    req.session.save((err) => {
-      if (err) {
-        return res.status(500).json({ error: 'Session error.' });
-      }
-      res.json({ message: 'Admin login successful!', admin: true });
-    });
-  } else {
-    res.status(401).json({ error: 'Invalid admin credentials.' });
+// POST /api/auth/admin/events
+router.post('/admin/events', async (req, res) => {
+  if (!checkAdmin(req)) {
+    return res.status(401).json({ error: 'Admin access required.' });
+  }
+  try {
+    const { event_title, category_id, venue_id, event_date, event_time, price, total_seats } = req.body;
+    await db.execute(
+      'INSERT INTO events (event_title, category_id, venue_id, event_date, event_time, price, total_seats, available_seats, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [event_title, category_id, venue_id, event_date, event_time, price, total_seats, total_seats, 'Available']
+    );
+    res.status(201).json({ message: 'Event added successfully!' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not add event.' });
   }
 });
+
 module.exports = router;
