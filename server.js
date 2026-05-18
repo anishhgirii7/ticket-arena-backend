@@ -1,4 +1,5 @@
 // server.js
+process.env.TZ = 'Australia/Sydney';
 const express = require('express');
 const session = require('express-session');
 const cors = require('cors');
