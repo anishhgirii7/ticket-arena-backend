@@ -162,9 +162,9 @@ router.put('/:id/cancel', async (req, res) => {
     );
 // Record payment
     await conn.execute(
-      'INSERT INTO payments (booking_id, amount, status, method) VALUES (?, ?, ?, ?)',
-      [booking_id, total_amount, 'completed', 'card']
-    );
+  'INSERT INTO payments (booking_id, amount, status, method) VALUES (?, ?, ?, ?)',
+  [booking_id, booking.total_amount, 'refunded', 'card']  // ✅ fixed
+);
 
     
     await conn.commit();
@@ -180,3 +180,4 @@ router.put('/:id/cancel', async (req, res) => {
   }
 });
 module.exports = router;
+
