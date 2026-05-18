@@ -155,7 +155,13 @@ router.put('/:id/cancel', async (req, res) => {
       'UPDATE tickets SET ticket_status = ? WHERE booking_id = ?',
       ['Cancelled', booking_id]
     );
+// Record payment
+    await conn.execute(
+      'INSERT INTO payments (booking_id, amount, status, method) VALUES (?, ?, ?, ?)',
+      [booking_id, total_amount, 'completed', 'card']
+    );
 
+    
     await conn.commit();
 
     res.json({ message: 'Booking cancelled successfully.' });
