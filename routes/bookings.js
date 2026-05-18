@@ -59,6 +59,11 @@ router.post('/', [
       'UPDATE events SET available_seats = available_seats - ? WHERE event_id = ?',
       [quantity, event_id]
     );
+    // Record payment
+    await conn.execute(
+      'INSERT INTO payments (booking_id, amount, status, method) VALUES (?, ?, ?, ?)',
+      [booking_id, total_amount, 'completed', 'card']
+    );
 
     await conn.commit();
 
